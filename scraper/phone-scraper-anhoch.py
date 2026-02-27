@@ -10,7 +10,6 @@ BASE_URL = "https://www.anhoch.com"
 IMAGE_BASE_URL = "https://www.anhoch.com/storage/media/"
 CATEGORY_URL = f"{BASE_URL}/categories/mobilni-telefoni/products?brand=&attribute=&toPrice=349980&inStockOnly=2&sort=latest&perPage=30&page="
 
-# brands we want — detected from the product name
 BRANDS = ["Samsung", "Apple", "Xiaomi", "Honor"]
 
 
@@ -68,7 +67,7 @@ def scrape_all_phones():
     page = 1
 
     while True:
-        #url = f"{CATEGORY_URL}?page={page}"
+
 
         url = f"{CATEGORY_URL}{page}"
         print(f"Scraping page {page} -> {url}")
@@ -103,27 +102,22 @@ def scrape_all_phones():
 
         for card in cards:
             try:
-                # name
-                #name = card.find_element(By.CSS_SELECTOR, "a.product-name").text.strip() # bez h6 ?!??
                 name_element = card.find_element(By.CSS_SELECTOR, "a.product-name")
                 name = driver.execute_script("return arguments[0].innerText;", name_element).strip()
-                # check brand — skip if not in our list
+
 
                 brand = detect_brand(name)
                 if brand is None:
                     continue
 
-                #brand = "Unknown"
 
-                # price
                 try:
-                    #price = card.find_element(By.CSS_SELECTOR, "div.product-price").text.strip()
                     price_element = card.find_element(By.CSS_SELECTOR, ".product-price")
                     price = driver.execute_script("return arguments[0].innerText;", price_element).strip()
                 except:
                     price = "N/A"
 
-                # image
+
                 try:
                     img = card.find_element(By.CSS_SELECTOR, "a.product-image img")
                     img_src = img.get_attribute("src")
@@ -134,7 +128,7 @@ def scrape_all_phones():
                 except:
                     image_url = "N/A"
 
-                # url
+
                 try:
                     href = card.find_element(By.CSS_SELECTOR, "a.product-image").get_attribute("href")
                     if href and href.startswith("/"):

@@ -9,7 +9,7 @@ import time
 BASE_URL = "https://www.tehnomarket.com.mk"
 IMAGE_BASE_URL = "https://www.tehnomarket.com.mk/img/products/full/"
 CATEGORY_URL = f"{BASE_URL}/category/4109/mobilni-telefoni"
-# brands we want — detected from the product name
+
 BRANDS = ["Samsung", "Apple", "Xiaomi", "Honor"]
 
 
@@ -41,7 +41,6 @@ def get_driver():
     return driver
 
 
-# neptun uses AngularJS so we wait for cards to render
 def wait_for_cards(driver, timeout=15):
     try:
         WebDriverWait(driver, timeout).until(
@@ -68,17 +67,12 @@ def scrape_all_phones():
     page = 1
 
     while True:
-        #url = f"{CATEGORY_URL}?page={page}"
-
-        #url = f"{CATEGORY_URL}{page}"
-        #url = f"{CATEGORY_URL}/page/{page}"
         if page == 1:
             url = CATEGORY_URL
         else:
             url = f"{CATEGORY_URL}/page/{page}"
         print(f"Scraping page {page} -> {url}")
         driver.get(url)
-        #time.sleep(3)
 
         loaded = wait_for_cards(driver)
         if not loaded:
@@ -108,31 +102,20 @@ def scrape_all_phones():
 
         for card in cards:
             try:
-                # name
-                #name = card.find_element(By.CSS_SELECTOR, "a.product-name").text.strip() # bez h6 ?!??
+
                 name = card.find_element(By.CSS_SELECTOR, ".product-name a").text.strip()
-                #name_element = card.find_element(By.CSS_SELECTOR, ".product-name > a")
-                #name = driver.execute_script("return arguments[0].innerText;", name_element).strip()
-                # check brand — skip if not in our list
 
                 brand = detect_brand(name)
                 if brand is None:
                     continue
 
-                #brand = "Unknown"
 
-                # price
                 try:
-                    #price = card.find_element(By.CSS_SELECTOR, "div.product-price").text.strip()
                     price = card.find_element(By.CSS_SELECTOR, ".nm").text.strip()
-                    #price = price_number + " ден."
-
-                    #price_element = card.find_element(By.CSS_SELECTOR, "span-nm")
-                    #price = driver.execute_script("return arguments[0].innerText;", price_element).strip()
                 except:
                     price = "N/A"
 
-                # image
+
                 try:
                     figure = card.find_element(By.CSS_SELECTOR, "figure")
                     style = figure.get_attribute("style")
@@ -143,7 +126,7 @@ def scrape_all_phones():
                 except:
                     image_url = "N/A"
 
-                # url
+
                 try:
                     href = card.find_element(By.CSS_SELECTOR, ".product-name a").get_attribute("href")
                     if href and href.startswith("/"):
