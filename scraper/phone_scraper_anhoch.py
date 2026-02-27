@@ -6,11 +6,19 @@ from selenium.webdriver.support import expected_conditions as EC
 import time
 
 
-BASE_URL = "https://www.tehnomarket.com.mk"
-IMAGE_BASE_URL = "https://www.tehnomarket.com.mk/img/products/full/"
-CATEGORY_URL = f"{BASE_URL}/category/4109/mobilni-telefoni"
+BASE_URL = "https://www.anhoch.com"
+IMAGE_BASE_URL = "https://www.anhoch.com/storage/media/"
+CATEGORY_URL = f"{BASE_URL}/categories/mobilni-telefoni/products?brand=&attribute=&toPrice=349980&inStockOnly=2&sort=latest&perPage=30&page="
 
 BRANDS = ["Samsung", "Apple", "Xiaomi", "Honor"]
+
+NAME_PREFIXES = [
+    "ваучер за преднарачка на",
+    "мобилен телефон",
+    "паметен телефон",
+    "smartphone",
+    "mobile phone"
+]
 
 
 class Phone:
@@ -44,7 +52,7 @@ def get_driver():
 def wait_for_cards(driver, timeout=15):
     try:
         WebDriverWait(driver, timeout).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "li.product-fix")) # .product-card .col
+            EC.presence_of_element_located((By.CSS_SELECTOR, ".product-card"))
         )
         time.sleep(1)
         return True
@@ -56,8 +64,20 @@ def detect_brand(name):
     name_lower = name.lower()
     for brand in BRANDS:
         if brand.lower() in name_lower:
-            return brand
+            return brand.lower()
     return None
+
+
+def clean_name(name):
+    name = name.lower().strip()
+    for prefix in NAME_PREFIXES:
+        name = name.replace(prefix, "").strip()
+    return name
+
+
+def clean_price(price):
+    # remove " ден." and any trailing whitespace, keep the number as-is
+    return price.replace("ден.", "").replace("ден", "").strip()
 
 
 def scrape_all_phones():
@@ -67,10 +87,7 @@ def scrape_all_phones():
     page = 1
 
     while True:
-        if page == 1:
-            url = CATEGORY_URL
-        else:
-            url = f"{CATEGORY_URL}/page/{page}"
+        url = f"{CATEGORY_URL}{page}"
         print(f"Scraping page {page} -> {url}")
         driver.get(url)
 
@@ -79,7 +96,7 @@ def scrape_all_phones():
             print(f"No cards on page {page}, stopping.")
             break
 
-        cards = driver.find_elements(By.CSS_SELECTOR, "li.product-fix") # .product-card .col
+        cards = driver.find_elements(By.CSS_SELECTOR, ".product-card")
 
         if not cards:
             print(f"Empty page {page}, stopping.")
@@ -88,7 +105,7 @@ def scrape_all_phones():
         page_urls = []
         for card in cards:
             try:
-                href = card.find_element(By.CSS_SELECTOR, ".pbox-thumbnail > a").get_attribute("href")
+                href = card.find_element(By.CSS_SELECTOR, "a.product-image").get_attribute("href")
                 page_urls.append(href)
             except:
                 page_urls.append("")
@@ -102,33 +119,39 @@ def scrape_all_phones():
 
         for card in cards:
             try:
+                name_element = card.find_element(By.CSS_SELECTOR, "a.product-name")
+                raw_name = driver.execute_script("return arguments[0].innerText;", name_element).strip()
 
-                name = card.find_element(By.CSS_SELECTOR, ".product-name a").text.strip()
-
-                brand = detect_brand(name)
+                # detect brand before cleaning
+                brand = detect_brand(raw_name)
                 if brand is None:
                     continue
 
+                # clean and lowercase name
+                name = clean_name(raw_name)
 
+                # price — strip ден.
                 try:
-                    price = card.find_element(By.CSS_SELECTOR, ".nm").text.strip()
+                    price_element = card.find_element(By.CSS_SELECTOR, ".product-price")
+                    raw_price = driver.execute_script("return arguments[0].innerText;", price_element).strip()
+                    price = clean_price(raw_price)
                 except:
                     price = "N/A"
 
-
+                # image
                 try:
-                    figure = card.find_element(By.CSS_SELECTOR, "figure")
-                    style = figure.get_attribute("style")
-
-                    import re
-                    match = re.search(r"url\(['\"]?(.*?)['\"]?\)", style)
-                    image_url = match.group(1) if match else "N/A"
+                    img = card.find_element(By.CSS_SELECTOR, "a.product-image img")
+                    img_src = img.get_attribute("src")
+                    if img_src and not img_src.startswith("http"):
+                        image_url = IMAGE_BASE_URL + img_src
+                    else:
+                        image_url = img_src
                 except:
                     image_url = "N/A"
 
-
+                # url
                 try:
-                    href = card.find_element(By.CSS_SELECTOR, ".product-name a").get_attribute("href")
+                    href = card.find_element(By.CSS_SELECTOR, "a.product-image").get_attribute("href")
                     if href and href.startswith("/"):
                         href = BASE_URL + href
                 except:
@@ -157,14 +180,14 @@ def scrape_all_phones():
 
 
 if __name__ == "__main__":
-    print("Starting tehnomarket.mk phone scraper...\n")
+    print("Starting anhoch.com phone scraper...\n")
     phones = scrape_all_phones()
 
     print(f"\n{'='*50}")
     print(f"Total phones scraped: {len(phones)}")
     print(f"{'='*50}")
     for brand in BRANDS:
-        count = len([p for p in phones if p.brand == brand])
+        count = len([p for p in phones if p.brand == brand.lower()])
         print(f"  {brand}: {count} phones")
     print()
     for phone in phones:

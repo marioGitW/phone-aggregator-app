@@ -4,14 +4,22 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
+import re
 
 
 BASE_URL = "https://www.neptun.mk"
 IMAGE_BASE_URL = "https://www.neptun.mk/ImageCache/Products/140x140/"
 CATEGORY_URL = f"{BASE_URL}/mobilni_telefoni.nspx"
 
-# brands we want — detected from the product name
 BRANDS = ["Samsung", "Apple", "Xiaomi", "Honor"]
+
+NAME_PREFIXES = [
+    "преднарачка -",
+    "мобилен телефон",
+    "паметен телефон",
+    "mobile phone",
+    "smartphone"
+]
 
 
 class Phone:
@@ -24,7 +32,7 @@ class Phone:
 
     def __repr__(self):
         return (f"Phone(name={self.name}, brand={self.brand}, "
-                f"price={self.price}, image_url={self.image_url})")
+                f"price={self.price}, image_url={self.image_url}, url={self.url})")
 
 
 def get_driver():
@@ -41,7 +49,6 @@ def get_driver():
     return driver
 
 
-# neptun uses AngularJS so we wait for cards to render
 def wait_for_cards(driver, timeout=15):
     try:
         WebDriverWait(driver, timeout).until(
@@ -57,8 +64,20 @@ def detect_brand(name):
     name_lower = name.lower()
     for brand in BRANDS:
         if brand.lower() in name_lower:
-            return brand
+            return brand.lower()
     return None
+
+
+def clean_name(name):
+    name = name.lower().strip()
+    # remove known prefixes anywhere in the name
+    for prefix in NAME_PREFIXES:
+        name = name.replace(prefix, "").strip()
+    # remove anything inside parentheses including the parentheses themselves
+    name = re.sub(r'\(.*?\)', '', name).strip()
+    # clean up any double spaces left behind
+    name = re.sub(r'\s+', ' ', name).strip()
+    return name
 
 
 def scrape_all_phones():
@@ -83,7 +102,6 @@ def scrape_all_phones():
             print(f"Empty page {page}, stopping.")
             break
 
-        # duplicate page check
         page_urls = []
         for card in cards:
             try:
@@ -101,13 +119,14 @@ def scrape_all_phones():
 
         for card in cards:
             try:
-                # name
-                name = card.find_element(By.CSS_SELECTOR, "h2.product-list-item__content--title").text.strip()
+                raw_name = card.find_element(By.CSS_SELECTOR, "h2.product-list-item__content--title").text.strip()
 
-                # check brand — skip if not in our list
-                brand = detect_brand(name)
+                # detect brand before cleaning
+                brand = detect_brand(raw_name)
                 if brand is None:
                     continue
+
+                name = clean_name(raw_name)
 
                 # price
                 try:
@@ -145,7 +164,7 @@ def scrape_all_phones():
                     image_url=image_url,
                     url=href,
                 ))
-                print(f"  + [{brand}] {name}")
+                print(f"  + [{brand}] {name} -> {href}")
 
             except Exception as e:
                 print(f"  Skipped a card: {e}")
@@ -164,7 +183,7 @@ if __name__ == "__main__":
     print(f"Total phones scraped: {len(phones)}")
     print(f"{'='*50}")
     for brand in BRANDS:
-        count = len([p for p in phones if p.brand == brand])
+        count = len([p for p in phones if p.brand == brand.lower()])
         print(f"  {brand}: {count} phones")
     print()
     for phone in phones:

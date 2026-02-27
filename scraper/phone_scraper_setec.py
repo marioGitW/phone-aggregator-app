@@ -18,9 +18,15 @@ CATEGORY_URL = (
     "&%25D0%2591%25D1%2580%25D0%25B5%25D0%25BD%25D0%25B4=Honor"
 )
 
-BRANDS = ["Apple", "Samsung", "Xiaomi", "Honor"]
+BRANDS = ["apple", "samsung", "xiaomi", "honor"]
 
-
+NAME_PREFIXES = [
+    "преднарачка -",
+    "мобилен телефон",
+    "паметен телефон",
+    "mobile phone",
+    "smartphone"
+]
 class Phone:
     def __init__(self, name, brand, price, image_url, url):
         self.name = name
@@ -64,6 +70,16 @@ def detect_brand(name):
             return brand
     return None
 
+def clean_name(name):
+    name = name.lower().strip()
+    # remove known prefixes anywhere in the name
+    for prefix in NAME_PREFIXES:
+        name = name.replace(prefix, "").strip()
+    # remove anything inside parentheses including the parentheses themselves
+    name = re.sub(r'\(.*?\)', '', name).strip()
+    # clean up any double spaces left behind
+    name = re.sub(r'\s+', ' ', name).strip()
+    return name
 
 def scrape_all_phones():
     driver = get_driver()
@@ -93,7 +109,7 @@ def scrape_all_phones():
 
         for p in products:
             try:
-                name = p.find_element(By.TAG_NAME, "h3").text.strip()
+                raw_name = p.find_element(By.TAG_NAME, "h3").text.strip()
                 link = p.find_element(By.TAG_NAME, "a").get_attribute("href")
 
                 if link in seen_urls:
@@ -102,11 +118,12 @@ def scrape_all_phones():
 
                 # image
                 image = p.find_element(By.CSS_SELECTOR, "img[alt]").get_attribute("src")
-
+                name = clean_name(raw_name)
                 # brand detection (name MUST contain one of the brands)
                 brand = detect_brand(name)
                 if brand is None:
                     continue
+
 
                 try:
                     price_container = p.find_element(

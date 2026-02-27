@@ -70,17 +70,13 @@ def scrape_ledikom():
 
         for p in products:
             try:
-                name = p.find_element(By.CSS_SELECTOR, ".item-name a").text.strip()
+                name = p.find_element(By.CSS_SELECTOR, ".item-name a").text.strip().lower()
 
                 # price
                 try:
-                    price_text = p.find_element(
-                        By.CSS_SELECTOR, ".grid-new-price"
-                    ).text
+                    price_text = p.find_element(By.CSS_SELECTOR, ".grid-new-price").text
                 except:
-                    price_text = p.find_element(
-                        By.CSS_SELECTOR, ".price"
-                    ).text
+                    price_text = p.find_element(By.CSS_SELECTOR, ".price").text
 
                 price = (
                     price_text.replace("ден", "")
@@ -90,14 +86,10 @@ def scrape_ledikom():
                 price = int(price)
 
                 # image
-                image = p.find_element(
-                    By.CSS_SELECTOR, ".item-img img"
-                ).get_attribute("src")
+                image = p.find_element(By.CSS_SELECTOR, ".item-img img").get_attribute("src")
 
                 # link
-                link = p.find_element(
-                    By.CSS_SELECTOR, "a[href*='/p/']"
-                ).get_attribute("href")
+                link = p.find_element(By.CSS_SELECTOR, "a[href*='/p/']").get_attribute("href")
 
                 if link in seen_urls:
                     continue
@@ -105,7 +97,7 @@ def scrape_ledikom():
 
                 phones.append(Phone(
                     name=name,
-                    brand=brand,
+                    brand=brand.lower(),
                     price=price,
                     image_url=image,
                     url=link
@@ -128,7 +120,7 @@ if __name__ == "__main__":
     print(f"Total phones scraped: {len(phones)}")
     print(f"{'='*50}")
     for brand in BRAND_URLS.keys():
-        count = len([p for p in phones if p.brand == brand])
+        count = len([p for p in phones if p.brand == brand.lower()])
         print(f"  {brand}: {count} phones")
     print()
     for phone in phones:
